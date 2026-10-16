@@ -73,3 +73,25 @@ def csv_to_json(source: Path, output_dir: Path) -> Path:
         json.dump(data, json_file, ensure_ascii=False, indent=4)
 
     return target
+
+
+@converter(".json", ".csv")
+def json_to_csv(source: Path, output_dir: Path) -> Path:
+    target = output_dir / f"{source.stem}.csv"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(source, mode="r", encoding="utf-8") as json_file:
+        data = json.load(json_file)
+
+        if len(data) == 0:
+            raise ValueError("Plik JSON jest pusty, brak danych do konwersji.")
+
+        first_row: list[str] = list(data[0].keys())
+
+    with open(target, mode="w", encoding="utf-8", newline="") as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=first_row)
+        writer.writeheader()
+        writer.writerows(data)
+
+    return target
