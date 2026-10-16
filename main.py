@@ -2,6 +2,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from collections.abc import Callable
 import subprocess
+import csv
+import json
 
 Converter = Callable[[Path, Path], Path]
 REGISTRY: dict[tuple[str, str], Converter] = {}
@@ -56,3 +58,18 @@ def execute(request: ConversionRequest) -> Path:
     # TODO: polityka nadpisywania i rejestrowanie czasu operacji
     return REGISTRY[key](request.source, request.output_dir)
 
+
+@converter(".csv", ".json")
+def csv_to_json(source: Path, output_dir: Path) -> Path:
+    target: Path = output_dir / f"{source.stem}.json"
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    with open(source, mode='r', encoding="utf-8") as csv_file:
+        reader = csv.DictReader(csv_file)
+        data = list(reader)
+
+    with open(target, mode="w", encoding="utf-8") as json_file:
+        json.dump(data, json_file, ensure_ascii=False, indent=4)
+
+    return target
