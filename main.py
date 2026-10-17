@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from json import JSONDecodeError
 from pathlib import Path
 from collections.abc import Callable
 import subprocess
@@ -81,13 +82,16 @@ def json_to_csv(source: Path, output_dir: Path) -> Path:
 
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    with open(source, mode="r", encoding="utf-8") as json_file:
-        data = json.load(json_file)
+    try:
+        with open(source, mode="r", encoding="utf-8") as json_file:
+            data = json.load(json_file)
+    except json.JSONDecodeError:
+        raise ValueError(f"Błąd: plik {source.name} nie jest poprawnym plikiem JSON. Plik jest uszkodzony lub błędnie sformatowany.")
 
-        if len(data) == 0:
-            raise ValueError("Plik JSON jest pusty, brak danych do konwersji.")
+    if len(data) == 0:
+        raise ValueError("Plik JSON jest pusty, brak danych do konwersji.")
 
-        first_row: list[str] = list(data[0].keys())
+    first_row: list[str] = list(data[0].keys())
 
     with open(target, mode="w", encoding="utf-8", newline="") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=first_row)
