@@ -99,3 +99,43 @@ def json_to_csv(source: Path, output_dir: Path) -> Path:
         writer.writerows(data)
 
     return target
+
+
+if __name__ == "__main__":
+    test_source_csv = Path("test_csv.csv")
+    test_source_json = Path("test_json.json")
+    test_error_json = Path("error-json.json")
+    test_output_dir = Path("")
+
+    if test_source_csv.exists():
+        req_csv_to_json = ConversionRequest(
+            source=test_source_csv,
+            target_format=".json",
+            output_dir=test_output_dir
+        )
+        json_result = execute(req_csv_to_json)
+        print(f"CSV do JSON: zapisano w {json_result}")
+    else:
+        print(f"Utwórz plik {test_source_csv}. Plik nie był znaleziony.")
+
+    if test_error_json.exists():
+        req_json_to_csv = ConversionRequest(
+            source=test_error_json,
+            target_format=".csv",
+            output_dir=test_output_dir
+        )
+        try:
+            csv_result = execute(req_json_to_csv)
+        except ValueError as ex:
+            print(ex)
+
+    if test_source_json.exists():
+        req_json_to_csv = ConversionRequest(
+            source= test_source_json,
+            target_format=".csv",
+            output_dir=test_output_dir
+        )
+        csv_result = execute(req_json_to_csv)
+        print(f"JSON to CSV: zapisano w {csv_result}")
+    else:
+        print(f"Utwórz plik {test_source_json}. Plik nie był znaleziony.")

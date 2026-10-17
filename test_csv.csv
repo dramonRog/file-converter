@@ -1,0 +1,5 @@
+id,projekt,technologia,status,opis_zadania
+101,System rezerwacji,C# / .NET,W toku,Wdrożenie autoryzacji JWT i ról użytkowników
+102,Skrypt OCR,Python,Zakończony,"Odczyt polskich znaków: żółć, gęślą, jaźń"
+103,Baza danych,PostgreSQL,Oczekujący,Migracja danych z Azure do lokalnego środowiska
+104,API Pogodowe,FastAPI,W toku,"Dodanie endpointu dla miast: Kraków, Gdańsk, Wrocław"
