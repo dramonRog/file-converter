@@ -102,10 +102,10 @@ def json_to_csv(source: Path, output_dir: Path) -> Path:
 
 
 if __name__ == "__main__":
-    test_source_csv = Path("test_csv.csv")
-    test_source_json = Path("test_json.json")
-    test_error_json = Path("error-json.json")
-    test_output_dir = Path("")
+    test_source_csv = Path("test/csv_and_json/test_csv.csv")
+    test_source_json = Path("test/csv_and_json/test_json.json")
+    test_error_json = Path("test/csv_and_json/error-json.json")
+    test_output_dir = Path("test/csv_and_json")
 
     if test_source_csv.exists():
         req_csv_to_json = ConversionRequest(
