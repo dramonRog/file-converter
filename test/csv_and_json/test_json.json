@@ -1,0 +1,23 @@
+[
+    {
+        "model_id": "M-001",
+        "nazwa": "Szafka dębowa",
+        "liczba_poligonow": 1250,
+        "modyfikator": "Bevel",
+        "tekstura": "Drewno_żółte"
+    },
+    {
+        "model_id": "M-002",
+        "nazwa": "Telewizor Retro",
+        "liczba_poligonow": 8400,
+        "modyfikator": "Array",
+        "tekstura": "Szklany_ekran"
+    },
+    {
+        "model_id": "M-003",
+        "nazwa": "Miecz z Minecrafta",
+        "liczba_poligonow": 450,
+        "modyfikator": "Brak",
+        "tekstura": "Pikseloza_świecąca"
+    }
+]

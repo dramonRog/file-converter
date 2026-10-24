@@ -1,0 +1,30 @@
+[
+    {
+        "id": "101",
+        "projekt": "System rezerwacji",
+        "technologia": "C# / .NET",
+        "status": "W toku",
+        "opis_zadania": "Wdrożenie autoryzacji JWT i ról użytkowników"
+    },
+    {
+        "id": "102",
+        "projekt": "Skrypt OCR",
+        "technologia": "Python",
+        "status": "Zakończony",
+        "opis_zadania": "Odczyt polskich znaków: żółć, gęślą, jaźń"
+    },
+    {
+        "id": "103",
+        "projekt": "Baza danych",
+        "technologia": "PostgreSQL",
+        "status": "Oczekujący",
+        "opis_zadania": "Migracja danych z Azure do lokalnego środowiska"
+    },
+    {
+        "id": "104",
+        "projekt": "API Pogodowe",
+        "technologia": "FastAPI",
+        "status": "W toku",
+        "opis_zadania": "Dodanie endpointu dla miast: Kraków, Gdańsk, Wrocław"
+    }
+]
