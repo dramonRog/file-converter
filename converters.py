@@ -6,11 +6,37 @@ import os
 from tempfile import TemporaryDirectory
 from pathlib import Path
 from docx import Document
+import zipfile
 
 from core import converter
 
+def assert_office_package(source: Path) -> None:
+    required = {
+        ".docx": ("word/document.xml", "DOCX"),
+        ".odt": ("content.xml", "ODT"),
+    }.get(source.suffix.lower())
+    if required is None:
+        raise ValueError(f"Nieobsługiwany plik wejściowy: {source.name}")
+
+    entry, label = required
+    message = (
+        f"Plik {source.name} nie jest poprawnym dokumentem {label}. "
+        "Zmiana rozszerzenia nie jest konwersją. "
+        "Wskaż prawdziwy, nieuszkodzony plik."
+    )
+    try:
+        if not zipfile.is_zipfile(source):
+            raise ValueError(message)
+        with zipfile.ZipFile(source) as archive:
+            if entry not in archive.namelist():
+                raise ValueError(message)
+    except zipfile.BadZipFile as exc:
+        raise ValueError(message) from exc
+
 def run_libreoffice(source: Path, work_dir: Path, target_ext: str,
                     executable: str | None = None) -> Path:
+    assert_office_package(source)
+
     tool = (executable or shutil.which("libreoffice")
             or shutil.which("soffice"))
     if not tool:
@@ -90,6 +116,7 @@ def txt_to_docx(source: Path, output_dir: Path) -> Path:
 
 @converter(".docx", ".txt")
 def docx_to_txt(source: Path, output_dir: Path) -> Path:
+    assert_office_package(source)
     if not source.is_file():
         raise FileNotFoundError("Brak pliku wejściowego")
     if not output_dir.is_dir():
