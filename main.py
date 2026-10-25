@@ -8,6 +8,7 @@ import shutil
 from tempfile import TemporaryDirectory
 import os
 from docx import Document
+import time
 
 
 Converter = Callable[[Path, Path], Path]
@@ -265,8 +266,18 @@ def run_libreoffice(source: Path, work_dir: Path, target_ext: str,
 def execute(request: ConversionRequest) -> Path:
     request.validate()
     key = (request.source.suffix.lower(), request.target_format.lower())
-    # TODO: polityka nadpisywania i rejestrowanie czasu operacji
-    return REGISTRY[key](request.source, request.output_dir)
+
+    start_time = time.perf_counter()
+    try:
+        result_path = REGISTRY[key](request.source, request.output_dir)
+
+        elapsed_time = time.perf_counter() - start_time
+        print(f"Konwersja {request.source.name} -> {request.target_format} trwała {elapsed_time:.2f} s")
+
+        return result_path
+    except Exception as e:
+        print(f"Błąd podczas konwersji {request.source.name}: {str(e)}")
+        raise
 
 
 if __name__ == "__main__":
