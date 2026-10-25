@@ -87,12 +87,14 @@ def docx_to_pdf(source: Path, output_dir: Path,
         raise ValueError("Oczekiwano pliku DOCX")
     if not output_dir.is_dir():
         raise NotADirectoryError("Brak katalogu wynikowego")
+
     target = output_dir / (source.stem + ".pdf")
     if target.exists():
         raise FileExistsError("Plik PDF już istnieje")
+
     with TemporaryDirectory() as temp:
-        pdf = run_pdf(source, Path(temp), executable)
-        with pdf.open("rb") as src, target.open("xb") as dst:
+        result_in_temp = run_libreoffice(source, Path(temp), "pdf", executable)
+        with result_in_temp.open("rb") as src, target.open("xb") as dst:
             shutil.copyfileobj(src, dst)
 
     return target
@@ -180,6 +182,64 @@ def json_to_csv(source: Path, output_dir: Path) -> Path:
     return target
 
 
+@converter(".docx", ".odt")
+def docx_to_odt(source: Path, output_dir: Path,
+                executable: str | None = None) -> Path:
+    if not source.is_file():
+        raise FileNotFoundError("Brak pliku wejściowego")
+    if source.suffix.lower() != ".docx":
+        raise ValueError("Oczekiwano pliku DOCX")
+    if not output_dir.is_dir():
+        raise NotADirectoryError("Brak katalogu wynikowego")
+
+    target = output_dir / (source.stem + ".odt")
+    if target.exists():
+        raise FileExistsError("Plik ODT już istnieje")
+
+    with TemporaryDirectory() as temp:
+        result_in_temp = run_libreoffice(source, Path(temp), "odt", executable)
+        with result_in_temp.open("rb") as src, target.open("xb") as dst:
+            shutil.copyfileobj(src, dst)
+
+    return target
+
+
+def run_libreoffice(source: Path, work_dir: Path, target_ext: str,
+                    executable: str | None = None) -> Path:
+    tool = (executable or shutil.which("libreoffice")
+            or shutil.which("soffice"))
+    if not tool:
+        windows_path = r"C:\Program Files\LibreOffice\program\soffice.exe"
+        if os.path.exists(windows_path):
+            tool = windows_path
+        else:
+            raise RuntimeError("Brak LibreOffice. Zainstaluj program lub ustaw ścieżkę.")
+
+    command = [tool, "--headless", "--convert-to", target_ext,
+               "--outdir", str(work_dir), str(source.resolve())]
+
+    try:
+        result = subprocess.run(
+            command, shell=False, capture_output=True,
+            text=True, errors="replace", timeout=60
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError("Sprawdź ścieżkę do LibreOffice") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("Przekroczono czas konwersji (60 s)") from exc
+    except OSError as exc:
+        raise RuntimeError("Nie można uruchomić LibreOffice") from exc
+
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(detail or "Błąd procesu LibreOffice")
+
+    target = work_dir / f"{source.stem}.{target_ext}"
+    if not target.is_file() or target.stat().st_size == 0:
+        raise RuntimeError(f"Nie powstał niepusty plik {target_ext.upper()}")
+    return target
+
+
 def execute(request: ConversionRequest) -> Path:
     request.validate()
     key = (request.source.suffix.lower(), request.target_format.lower())
@@ -199,6 +259,7 @@ if __name__ == "__main__":
     output_dir_pdf = Path("test/pdf")
     output_dir_docx = Path("test/docx")
     output_dir_txt = Path("test/txt")
+    output_dir_odt = Path("test/odt")
 
     if test_source_csv.exists():
         req_csv_to_json = ConversionRequest(
@@ -274,3 +335,15 @@ if __name__ == "__main__":
             print(f"DOCX do TXT: zapisano w {txt_result}")
         except Exception as e:
             print(f"Błąd konwersji DOCX do TXT: {e}")
+
+    if test_source_docx.exists():
+        req_docx_to_odt = ConversionRequest(
+            source=test_source_docx,
+            target_format=".odt",
+            output_dir=output_dir_odt
+        )
+        try:
+            odt_result = execute(req_docx_to_odt)
+            print(f"DOCX do ODT: zapisano w {odt_result}")
+        except Exception as e:
+            print(f"Błąd konwersji DOCX do ODT: {e}")
