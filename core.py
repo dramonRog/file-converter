@@ -42,4 +42,4 @@ def execute(request: ConversionRequest) -> Path:
         return result_path
     except Exception as e:
         print(f"Błąd podczas konwersji {request.source.name}: {str(e)}")
-        raise
+        return None
