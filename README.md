@@ -1,90 +1,85 @@
 # Projekt 1: Uniwersalny konwerter plików
 
-Aplikacja desktopowa napisana w języku Python, pozwalająca na łatwą i bezpieczną konwersję plików między różnymi formatami.
+Repozytorium: https://github.com/dramonRog/file-converter
 
-**Autor:** Roman Buchynskyi  
-**Technologia bazowa:** Python 3 + Tkinter/ttk
+Program zamienia plik z jednego formatu na inny i zapisuje wynik we wskazanym katalogu. Na tym etapie działa z konsoli. Okno w Tkinter pojawi się na kolejnym etapie, więc pliku nie wybiera się jeszcze myszką: skrypt bierze przygotowane ścieżki i woła konwerter z rejestru.
 
----
+Nie jest to narzędzie do dowolnej zamiany rozszerzeń. Działa tylko dla par z macierzy poniżej. 
 
-## Cel projektu
-Stworzenie narzędzia, które pozwala wybrać plik wejściowy, pokazuje dostępne dla niego formaty docelowe, wykonuje konwersję i zapisuje wynik. Logika konwersji jest całkowicie oddzielona od interfejsu użytkownika (wzorzec Rejestru).
+Autor: Roman Buchynskyi.
 
----
+## Co robi program
 
-## Wymagania i instalacja
+Są trzy grupy formatów. Logika konwersji jest oddzielona od uruchomienia, więc nową parę dopisuje się do rejestru bez przerabiania całego skryptu.
 
-Projekt wykorzystuje najnowsze standardy zarządzania zależnościami w Pythonie (`pyproject.toml` oraz `uv`).
+| Para | Grupa | Narzędzie | Jak przenoszona jest treść |
+|---|---|---|---|
+| CSV → JSON | dane strukturalne | `csv`, `json` | Pierwszy wiersz jest nagłówkiem. Wynikiem jest lista obiektów w UTF-8, z polskimi znakami. Puste komórki zostają pustymi stringami. Istniejący plik JSON jest nadpisywany. |
+| JSON → CSV | dane strukturalne | `csv`, `json` | Wejście musi być listą obiektów. Nagłówek i kolejność kolumn biorą się z kluczy pierwszego obiektu. Pusta lista jest odrzucana. Urwany JSON daje komunikat, a nie przerwanie programu. Istniejący CSV jest nadpisywany. |
+| TXT → DOCX | tekst / dokument | python-docx | UTF-8. Każda linia staje się osobnym akapitem. Pusta linia daje pusty akapit. Końcowy znak nowej linii nie dokłada kolejnego pustego akapitu. Znaczniki nie są interpretowane. Istniejący DOCX blokuje zapis. |
+| DOCX → TXT | tekst / dokument | python-docx | Do TXT trafiają akapity dokumentu, rozdzielone znakiem nowej linii. Tabele, pola tekstowe, nagłówki i stopki nie są przenoszone. Uszkodzony DOCX jest odrzucany. |
+| DOCX → PDF | format biurowy | LibreOffice, tryb headless | Powstaje otwieralny PDF. Układ stron może się różnić od oryginału. Plik, który nie jest prawdziwym DOCX, jest odrzucany przed uruchomieniem LibreOffice. Istniejący PDF blokuje zapis. |
+| DOCX → ODT | format biurowy | LibreOffice, tryb headless | Treść tekstowa jest przenoszona, złożony układ może się zmienić. Uszkodzony DOCX jest odrzucany przed uruchomieniem programu. Istniejący ODT blokuje zapis. |
+| ODT → DOCX | format biurowy | LibreOffice, tryb headless | Jak wyżej, w drugą stronę. Uszkodzony ODT jest odrzucany. Istniejący DOCX blokuje zapis. |
 
-### Wymagania systemowe
-* **Python:** wersja 3.10 lub nowsza.
-* **System operacyjny:** Windows / Linux / macOS.
+Przyjęta struktura JSON to lista obiektów o zwykłych wartościach, zapisana w UTF-8. Klucze odpowiadają nagłówkom CSV. Pojedynczy obiekt JSON, zamiast listy, nie jest obsługiwaną strukturą.
 
-### Instalacja i uruchomienie
-1. Sklonuj repozytorium na swój komputer:
+LibreOffice jest wołany listą argumentów, bez powłoki, z limitem 60 sekund. Sprawdzany jest kod zakończenia i to, czy plik wynikowy w ogóle powstał i nie jest pusty. Wynik najpierw powstaje w katalogu tymczasowym, a potem jest kopiowany do katalogu docelowego bez nadpisania istniejącego pliku.
 
-   ```bash
-   git clone https://github.com/dramonRog/file-converter.git
-   cd file-converter
-   ```
+## Czego jeszcze nie ma
 
-2. Projekt korzysta wyłącznie z wbudowanych bibliotek Pythona dla obecnych konwerterów. Nie ma potrzeby instalowania dodatkowych pakietów.
-3. Aby uruchomić testową konwersję bez GUI, użyj polecenia:
-    ```bash
-    python main.py
-    ```
----
+Nie ma interfejsu graficznego, więc nie ma wyboru pliku ani formatu w oknie. Nie zachowujemy identycznego układu stron, makr, przypisów ani osadzonych wykresów.
 
-## Status i obsługiwane formaty
+Pary dokumentów nie nadpisują istniejącego wyniku i sygnalizują, że plik już jest. CSV i JSON przy kolejnym uruchomieniu zapisują wynik od nowa. JSON inny niż lista obiektów kończy się komunikatem «0». Przy błędzie konwersji `execute()` wypisuje komunikat i zwraca `None`. Brak katalogu docelowego kończy się wyjątkiem jeszcze przed samą konwersją. Konwersje biurowe uruchamia się po kolei. Gdy LibreOffice sprawia kłopot, warto najpierw zamknąć jego otwarte okno.
 
-Aplikacja jest rozwijana etapami. Głównym założeniem jest obsługa trzech grup formatów: danych strukturalnych, tekstowych oraz biurowych.
+## Struktura
 
-### Funkcje zrealizowane
+* `core.py` trzyma rejestr, sprawdzenie ścieżek i wywołanie konwersji.
+* `converters.py` zawiera same konwertery.
+* `main.py` uruchamia przygotowane kierunki.
+* `pyproject.toml` opisuje wersję Pythona i pakiet `python-docx`.
+* `test/` zawiera dane wejściowe i przykładowe wyniki.
 
-Zaimplementowano w pełni konwertery danych strukturalnych:
+## Jak uruchomić
 
-* **CSV do JSON**
-* *Opis:* Konwertuje dane tabelaryczne z pierwszego wiersza (nagłówki) na listę obiektów JSON.
-* *Ograniczenia:* Wymaga poprawnego formatowania znaków specjalnych w komórkach za pomocą cudzysłowów (zgodnie ze standardem CSV).
+Potrzebny jest Python 3.14 lub nowszy oraz zainstalowany LibreOffice. Sam menedżer pakietów Pythona LibreOffice nie doinstaluje. Biblioteka dokumentów nazywa się w instalacji `python-docx`, a w kodzie importuje się ją jako `docx`.
 
+Program szuka LibreOffice po kolei: najpierw w PATH jako `libreoffice`, potem jako `soffice`, a na Windows jeszcze pod `C:\Program Files\LibreOffice\program\soffice.exe`. Do pracy w konsoli na Windows pasuje też `soffice.com` z katalogu `program`. Na macOS typowa ścieżka to `/Applications/LibreOffice.app/Contents/MacOS/soffice`. Gdy programu nie ma, pojawia się prośba o instalację albo ustawienie ścieżki. Nieistniejącą ścieżkę można podać w argumencie `executable` funkcji `docx_to_pdf`. Sam `main.py` tego argumentu nie przyjmuje.
 
-* **JSON do CSV**
-* *Opis:* Pobiera strukturę na podstawie pierwszego obiektu z listy i generuje plik tabelaryczny.
-* *Zabezpieczenia:* Aplikacja nie ulega awarii przy podaniu nieprawidłowego pliku – rzuca kontrolowany wyjątek. Puste pliki JSON są poprawnie identyfikowane i odrzucane z odpowiednim komunikatem.
+```bash
+git clone https://github.com/dramonRog/file-converter.git
+cd file-converter
+uv sync
+uv run python main.py
+```
 
+Bez uv:
 
+```bash
+python -m venv .venv
+```
 
-W obu kierunkach zagwarantowano bezstratne przenoszenie polskich znaków diakrytycznych (kodowanie UTF-8) i prewencję przed nadmiarowymi pustymi wierszami.
+Po aktywacji środowiska:
 
-### Planowane do realizacji
+```bash
+python -m pip install "python-docx>=1.2.0"
+python -c "from docx import Document; print('OK')"
+python main.py
+```
 
-W kolejnych etapach dodane zostaną:
+Katalogu `.venv` nie dołącza się do oddawanego archiwum.
 
-* Konwersja dokumentów tekstowych (np. TXT → DOCX / PDF).
-* Wsparcie formatów biurowych wykorzystujące silnik LibreOffice w trybie headless.
+`python main.py` przechodzi pary po kolei i zapisuje wynik obok danych w `test/`.
 
----
+| Wejście | Format | Wynik |
+|---|---|---|
+| `test/csv/test_csv.csv` | `.json` | `test/json/test_csv.json` |
+| `test/json/error-json.json` | `.csv` | komunikat o błędnym JSON, bez pliku |
+| `test/json/test_json.json` | `.csv` | `test/csv/test_json.csv` |
+| `test/docx/mini-test-doc.docx` | `.pdf` | `test/pdf/mini-test-doc.pdf` |
+| `test/docx/mini-test-doc.docx` | `.txt` | `test/txt/mini-test-doc.txt` |
+| `test/docx/mini-test-doc.docx` | `.odt` | `test/odt/mini-test-doc.odt` |
+| `test/txt/test_text.txt` | `.docx` | `test/docx/test_text.docx` |
+| `test/odt/test_odt.odt` | `.docx` | `test/docx/test_odt.docx` |
 
-## Scenariusze testowe
-
-Dla celów walidacji projektu przygotowano dedykowane pliki w folderze głównym oraz skrypt uruchomieniowy w `main.py`. Aplikację można zweryfikować manualnie bez GUI.
-
-**Opis przygotowanych danych:**
-
-1. **Plik `test_csv.csv`**
-* Zawiera wykaz projektów informatycznych.
-* *Cel testu:* Sprawdzenie czy znaki takie jak `żółć, gęślą, jaźń` są konwertowane na obiekt JSON bez błędów strukturalnych (np. niepożądanego rozbijania na dodatkowe kolumny/klucze typu null).
-
-
-2. **Plik `test_json.json`**
-* Zawiera zbiór trójwymiarowych modeli programu Blender.
-* *Cel testu:* Weryfikacja umiejętności zdekodowania JSON i zbudowania nagłówków dla pliku wyjściowego CSV.
-
-
-3. **Uszkodzony plik `error-json.json`**
-* Zawiera uszkodzoną strukturę symulującą wadliwe dane wejściowe.
-* *Cel testu:* Prezentacja prawidłowej obsługi wyjątków - pojawienie się w konsoli komunikatu "Błąd: plik nie jest poprawnym plikiem JSON", zamiast awarii interpretera Pythona.
-
-
-
-Aby przetestować wszystkie scenariusze i automatycznie sprawdzić zapis plików wyjściowych, należy użyć komendę: `python main.py`
+Dla dokumentów istniejący plik wynikowy blokuje kolejny zapis. Przed ponownym uruchomieniem usuń tylko wyniki, nie pliki wejściowe: `test/pdf/mini-test-doc.pdf`, `test/docx/test_text.docx`, `test/docx/test_text1.docx`, `test/docx/test_odt.docx` i `test/odt/test_text1.odt`. Pary CSV ↔ JSON nadpisują swój wynik same.
