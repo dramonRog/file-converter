@@ -204,6 +204,28 @@ def docx_to_odt(source: Path, output_dir: Path,
     return target
 
 
+@converter(".odt", ".docx")
+def odt_to_docx(source: Path, output_dir: Path,
+                executable: str | None = None) -> Path:
+    if not source.is_file():
+        raise FileNotFoundError("Brak pliku wejściowego")
+    if source.suffix.lower() != ".odt":
+        raise ValueError("Oczekiwano pliku ODT")
+    if not output_dir.is_dir():
+        raise NotADirectoryError("Brak katalogu wynikowego")
+
+    target = output_dir / (source.stem + ".docx")
+    if target.exists():
+        raise FileExistsError("Plik DOCX już istnieje")
+
+    with TemporaryDirectory() as temp:
+        result_in_temp = run_libreoffice(source, Path(temp), "docx", executable)
+        with result_in_temp.open("rb") as src, target.open("xb") as dst:
+            shutil.copyfileobj(src, dst)
+
+    return target
+
+
 def run_libreoffice(source: Path, work_dir: Path, target_ext: str,
                     executable: str | None = None) -> Path:
     tool = (executable or shutil.which("libreoffice")
@@ -253,6 +275,7 @@ if __name__ == "__main__":
     test_error_json = Path("test/json/error-json.json")
     test_source_txt = Path("test/txt/test_text.txt")
     test_source_docx = Path("test/docx/test_text1.docx")
+    test_source_odt = Path("test/odt/test_odt.odt")
 
     output_dir_json = Path("test/json")
     output_dir_csv = Path("test/csv")
@@ -347,3 +370,17 @@ if __name__ == "__main__":
             print(f"DOCX do ODT: zapisano w {odt_result}")
         except Exception as e:
             print(f"Błąd konwersji DOCX do ODT: {e}")
+
+    if test_source_odt.exists():
+        req_odt_to_docx = ConversionRequest(
+            source=test_source_odt,
+            target_format=".docx",
+            output_dir=output_dir_docx
+        )
+        try:
+            docx_result_from_odt = execute(req_odt_to_docx)
+            print(f"ODT do DOCX: zapisano w {docx_result_from_odt}")
+        except Exception as e:
+            print(f"Błąd konwersji ODT do DOCX: {e}")
+    else:
+        print(f"Utwórz plik {test_source_odt}. Plik nie był znaleziony.")
