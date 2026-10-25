@@ -7,6 +7,8 @@ import json
 import shutil
 from tempfile import TemporaryDirectory
 import os
+from docx import Document
+
 
 Converter = Callable[[Path, Path], Path]
 REGISTRY: dict[tuple[str, str], Converter] = {}
@@ -96,6 +98,47 @@ def docx_to_pdf(source: Path, output_dir: Path,
     return target
 
 
+@converter(".txt", ".docx")
+def txt_to_docx(source: Path, output_dir: Path) -> Path:
+    if not source.is_file():
+        raise FileNotFoundError("Brak pliku wejściowego")
+    if not output_dir.is_dir():
+        raise NotADirectoryError("Brak katalogu wynikowego")
+    if source.suffix.lower() != ".txt":
+        raise ValueError("Oczekiwano pliku TXT")
+
+    target = output_dir / (source.stem + ".docx")
+    if target.exists():
+        raise FileExistsError("Wynik istnieje; wybierz inną nazwę")
+
+    text = source.read_text(encoding="utf-8")
+    document = Document()
+    for line in text.splitlines():
+        document.add_paragraph(line)
+    document.save(str(target))
+    return target
+
+
+@converter(".docx", ".txt")
+def docx_to_txt(source: Path, output_dir: Path) -> Path:
+    if not source.is_file():
+        raise FileNotFoundError("Brak pliku wejściowego")
+    if not output_dir.is_dir():
+        raise NotADirectoryError("Brak katalogu wynikowego")
+    if source.suffix.lower() != ".docx":
+        raise ValueError("Oczekiwano pliku DOCX")
+
+    target = output_dir / (source.stem + ".txt")
+    if target.exists():
+        raise FileExistsError("Wynik istnieje; wybierz inną nazwę")
+
+    doc = Document(source)
+    text = "\n".join(para.text for para in doc.paragraphs)
+
+    target.write_text(text, encoding="utf-8")
+    return target
+
+
 @converter(".csv", ".json")
 def csv_to_json(source: Path, output_dir: Path) -> Path:
     target: Path = output_dir / f"{source.stem}.json"
@@ -148,10 +191,14 @@ if __name__ == "__main__":
     test_source_csv = Path("test/csv/test_csv.csv")
     test_source_json = Path("test/json/test_json.json")
     test_error_json = Path("test/json/error-json.json")
+    test_source_txt = Path("test/txt/test_text.txt")
+    test_source_docx = Path("test/docx/test_text1.docx")
 
     output_dir_json = Path("test/json")
     output_dir_csv = Path("test/csv")
     output_dir_pdf = Path("test/pdf")
+    output_dir_docx = Path("test/docx")
+    output_dir_txt = Path("test/txt")
 
     if test_source_csv.exists():
         req_csv_to_json = ConversionRequest(
@@ -201,3 +248,29 @@ if __name__ == "__main__":
             print(f"Błąd konwersji DOCX do PDF: {e}")
     else:
         print(f"Utwórz plik {test_source_docx}. Plik nie był znaleziony.")
+
+    if test_source_txt.exists():
+        req_txt_to_docx = ConversionRequest(
+            source=test_source_txt,
+            target_format=".docx",
+            output_dir=output_dir_docx
+        )
+        try:
+            docx_result = execute(req_txt_to_docx)
+            print(f"TXT do DOCX: zapisano w {docx_result}")
+        except Exception as e:
+            print(f"Błąd konwersji TXT do DOCX: {e}")
+    else:
+        print(f"Utwórz plik {test_source_txt}. Plik nie był znaleziony.")
+
+    if test_source_docx.exists():
+        req_docx_to_txt = ConversionRequest(
+            source=test_source_docx,
+            target_format=".txt",
+            output_dir=output_dir_txt
+        )
+        try:
+            txt_result = execute(req_docx_to_txt)
+            print(f"DOCX do TXT: zapisano w {txt_result}")
+        except Exception as e:
+            print(f"Błąd konwersji DOCX do TXT: {e}")
