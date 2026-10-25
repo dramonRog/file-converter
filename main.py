@@ -1,10 +1,12 @@
 from dataclasses import dataclass
-from json import JSONDecodeError
 from pathlib import Path
 from collections.abc import Callable
 import subprocess
 import csv
 import json
+import shutil
+from tempfile import TemporaryDirectory
+import os
 
 Converter = Callable[[Path, Path], Path]
 REGISTRY: dict[tuple[str, str], Converter] = {}
@@ -38,26 +40,60 @@ def available_targets(source: Path) -> list[str]:
     return sorted(target for (src, target) in REGISTRY if src == source.suffix.lower())
 
 
-@converter(".docx", ".pdf")
-def docx_to_pdf(source: Path, output_dir: Path) -> Path:
-    command = [
-        "libreoffice", "--headless", "--convert-to", "pdf",
-        "--outdir", str(output_dir), str(source)
-    ]
-    result = subprocess.run(command, capture_output=True, text=True, timeout=60)
+def run_pdf(source: Path, work_dir: Path,
+            executable: str | None = None) -> Path:
+    tool = (executable or shutil.which("libreoffice")
+            or shutil.which("soffice"))
+    if not tool:
+        windows_path = r"C:\Program Files\LibreOffice\program\soffice.exe"
+        if os.path.exists(windows_path):
+            tool = windows_path
+        else:
+            raise RuntimeError("Brak LibreOffice. Zainstaluj program lub ustaw ścieżkę.")
+
+    command = [tool, "--headless", "--convert-to", "pdf",
+               "--outdir", str(work_dir), str(source.resolve())]
+
+    try:
+        result = subprocess.run(
+            command, shell=False, capture_output=True,
+            text=True, errors="replace", timeout=60
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError("Sprawdź ścieżkę do LibreOffice") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("Przekroczono czas konwersji (60 s)") from exc
+    except OSError as exc:
+        raise RuntimeError("Nie można uruchomić LibreOffice") from exc
+
     if result.returncode != 0:
-        raise RuntimeError(result.stderr.strip() or "Konwersja nie powiodła się")
-    target = output_dir / f"{source.stem}.pdf"
-    if not target.exists():
-        raise RuntimeError("Narzędzie nie utworzyło oczekiwanego pliku")
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(detail or "Błąd procesu LibreOffice")
+
+    target = work_dir / (source.stem + ".pdf")
+    if not target.is_file() or target.stat().st_size == 0:
+        raise RuntimeError("Nie powstał niepusty plik PDF")
     return target
 
 
-def execute(request: ConversionRequest) -> Path:
-    request.validate()
-    key = (request.source.suffix.lower(), request.target_format.lower())
-    # TODO: polityka nadpisywania i rejestrowanie czasu operacji
-    return REGISTRY[key](request.source, request.output_dir)
+@converter(".docx", ".pdf")
+def docx_to_pdf(source: Path, output_dir: Path,
+                executable: str | None = None) -> Path:
+    if not source.is_file():
+        raise FileNotFoundError("Brak pliku wejściowego")
+    if source.suffix.lower() != ".docx":
+        raise ValueError("Oczekiwano pliku DOCX")
+    if not output_dir.is_dir():
+        raise NotADirectoryError("Brak katalogu wynikowego")
+    target = output_dir / (source.stem + ".pdf")
+    if target.exists():
+        raise FileExistsError("Plik PDF już istnieje")
+    with TemporaryDirectory() as temp:
+        pdf = run_pdf(source, Path(temp), executable)
+        with pdf.open("rb") as src, target.open("xb") as dst:
+            shutil.copyfileobj(src, dst)
+
+    return target
 
 
 @converter(".csv", ".json")
@@ -101,17 +137,27 @@ def json_to_csv(source: Path, output_dir: Path) -> Path:
     return target
 
 
+def execute(request: ConversionRequest) -> Path:
+    request.validate()
+    key = (request.source.suffix.lower(), request.target_format.lower())
+    # TODO: polityka nadpisywania i rejestrowanie czasu operacji
+    return REGISTRY[key](request.source, request.output_dir)
+
+
 if __name__ == "__main__":
-    test_source_csv = Path("test/csv_and_json/test_csv.csv")
-    test_source_json = Path("test/csv_and_json/test_json.json")
-    test_error_json = Path("test/csv_and_json/error-json.json")
-    test_output_dir = Path("test/csv_and_json")
+    test_source_csv = Path("test/csv/test_csv.csv")
+    test_source_json = Path("test/json/test_json.json")
+    test_error_json = Path("test/json/error-json.json")
+
+    output_dir_json = Path("test/json")
+    output_dir_csv = Path("test/csv")
+    output_dir_pdf = Path("test/pdf")
 
     if test_source_csv.exists():
         req_csv_to_json = ConversionRequest(
             source=test_source_csv,
             target_format=".json",
-            output_dir=test_output_dir
+            output_dir=output_dir_json
         )
         json_result = execute(req_csv_to_json)
         print(f"CSV do JSON: zapisano w {json_result}")
@@ -122,7 +168,7 @@ if __name__ == "__main__":
         req_json_to_csv = ConversionRequest(
             source=test_error_json,
             target_format=".csv",
-            output_dir=test_output_dir
+            output_dir=output_dir_csv
         )
         try:
             csv_result = execute(req_json_to_csv)
@@ -131,11 +177,27 @@ if __name__ == "__main__":
 
     if test_source_json.exists():
         req_json_to_csv = ConversionRequest(
-            source= test_source_json,
+            source=test_source_json,
             target_format=".csv",
-            output_dir=test_output_dir
+            output_dir=output_dir_csv
         )
         csv_result = execute(req_json_to_csv)
         print(f"JSON to CSV: zapisano w {csv_result}")
     else:
         print(f"Utwórz plik {test_source_json}. Plik nie był znaleziony.")
+
+    test_source_docx = Path("test/docx/mini-test-doc.docx")
+
+    if test_source_docx.exists():
+        req_docx_to_pdf = ConversionRequest(
+            source=test_source_docx,
+            target_format=".pdf",
+            output_dir=output_dir_pdf
+        )
+        try:
+            pdf_result = execute(req_docx_to_pdf)
+            print(f"DOCX do PDF: zapisano w {pdf_result}")
+        except Exception as e:
+            print(f"Błąd konwersji DOCX do PDF: {e}")
+    else:
+        print(f"Utwórz plik {test_source_docx}. Plik nie był znaleziony.")
