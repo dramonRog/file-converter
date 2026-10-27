@@ -139,13 +139,16 @@ def docx_to_txt(source: Path, output_dir: Path) -> Path:
 def csv_to_json(source: Path, output_dir: Path) -> Path:
     target: Path = output_dir / f"{source.stem}.json"
 
+    if target.exists():
+        raise FileExistsError("Wynik istnieje; wybierz inną nazwę")
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     with open(source, mode='r', encoding="utf-8") as csv_file:
         reader = csv.DictReader(csv_file)
         data = list(reader)
 
-    with open(target, mode="w", encoding="utf-8") as json_file:
+    with open(target, mode="x", encoding="utf-8") as json_file:
         json.dump(data, json_file, ensure_ascii=False, indent=4)
 
     return target
@@ -155,20 +158,24 @@ def csv_to_json(source: Path, output_dir: Path) -> Path:
 def json_to_csv(source: Path, output_dir: Path) -> Path:
     target = output_dir / f"{source.stem}.csv"
 
+    if target.exists():
+        raise FileExistsError("Wynik istnieje; wybierz inną nazwę")
+
     output_dir.mkdir(parents=True, exist_ok=True)
 
     try:
         with open(source, mode="r", encoding="utf-8") as json_file:
             data = json.load(json_file)
     except json.JSONDecodeError:
-        raise ValueError(f"Błąd: plik {source.name} nie jest poprawnym plikiem JSON. Plik jest uszkodzony lub błędnie sformatowany.")
+        raise ValueError(
+            f"Błąd: plik {source.name} nie jest poprawnym plikiem JSON. Plik jest uszkodzony lub błędnie sformatowany.")
 
     if len(data) == 0:
         raise ValueError("Plik JSON jest pusty, brak danych do konwersji.")
 
     first_row: list[str] = list(data[0].keys())
 
-    with open(target, mode="w", encoding="utf-8", newline="") as csv_file:
+    with open(target, mode="x", encoding="utf-8", newline="") as csv_file:
         writer = csv.DictWriter(csv_file, fieldnames=first_row)
         writer.writeheader()
         writer.writerows(data)
