@@ -1,56 +1,54 @@
-# Projekt 1: Uniwersalny konwerter plików
+# Uniwersalny konwerter plików
 
 Repozytorium: https://github.com/dramonRog/file-converter
 
-Program zamienia plik z jednego formatu na inny i zapisuje wynik we wskazanym katalogu. Na tym etapie działa z konsoli. Okno w Tkinter pojawi się na kolejnym etapie, więc pliku nie wybiera się jeszcze myszką: skrypt bierze przygotowane ścieżki i woła konwerter z rejestru.
-
-Nie jest to narzędzie do dowolnej zamiany rozszerzeń. Działa tylko dla par z macierzy poniżej. 
+Program z oknem, w którym wybiera się plik, katalog zapisu i format docelowy. Lista formatów zależy od rozszerzenia źródła: widać tylko pary, które konwerter naprawdę obsługuje. Po kliknięciu „Konwertuj” wynik trafia do wybranego katalogu. Jeśli plik o tej nazwie już tam jest, program go nie zastępuje.
 
 Autor: Roman Buchynskyi.
 
-## Co robi program
+## Technologie
 
-Są trzy grupy formatów. Logika konwersji jest oddzielona od uruchomienia, więc nową parę dopisuje się do rejestru bez przerabiania całego skryptu.
+* **Python 3.14** albo nowszy. Interfejs korzysta z biblioteki standardowej **Tkinter** i **ttk**, bez dodatkowych pakietów do okien.
+* **python-docx** (import w kodzie: `docx`) do TXT ↔ DOCX.
+* **LibreOffice** w trybie bez okna do DOCX → PDF, DOCX → ODT i ODT → DOCX. To program systemowy. Sam `pip` go nie instaluje.
+* Moduły standardowe `csv`, `json`, `pathlib`, `subprocess` i `zipfile` do danych tabelarycznych, ścieżek i uruchomienia procesu.
 
-| Para | Grupa | Narzędzie | Jak przenoszona jest treść |
+Konwertery są w rejestrze, osobno od okna. Nowa para formatów nie wymaga przebudowy interfejsu: lista „Na format” czyta ten rejestr.
+
+## Co potrafi
+
+Program nie zamienia dowolnych rozszerzeń. JSON musi być listą obiektów w UTF-8. Klucze odpowiadają nagłówkom CSV, a kolejność kolumn bierze się z pierwszego obiektu. W pliku TXT każda linia staje się akapitem DOCX. Pusta linia zostaje pustym akapitem, a sam znak nowej linii na końcu nie dokłada kolejnego.
+
+| Para | Grupa | Narzędzie | Co zostaje z treści |
 |---|---|---|---|
-| CSV → JSON | dane strukturalne | `csv`, `json` | Pierwszy wiersz jest nagłówkiem. Wynikiem jest lista obiektów w UTF-8, z polskimi znakami. Puste komórki zostają pustymi stringami. Istniejący plik JSON jest nadpisywany. |
-| JSON → CSV | dane strukturalne | `csv`, `json` | Wejście musi być listą obiektów. Nagłówek i kolejność kolumn biorą się z kluczy pierwszego obiektu. Pusta lista jest odrzucana. Urwany JSON daje komunikat, a nie przerwanie programu. Istniejący CSV jest nadpisywany. |
-| TXT → DOCX | tekst / dokument | python-docx | UTF-8. Każda linia staje się osobnym akapitem. Pusta linia daje pusty akapit. Końcowy znak nowej linii nie dokłada kolejnego pustego akapitu. Znaczniki nie są interpretowane. Istniejący DOCX blokuje zapis. |
-| DOCX → TXT | tekst / dokument | python-docx | Do TXT trafiają akapity dokumentu, rozdzielone znakiem nowej linii. Tabele, pola tekstowe, nagłówki i stopki nie są przenoszone. Uszkodzony DOCX jest odrzucany. |
-| DOCX → PDF | format biurowy | LibreOffice, tryb headless | Powstaje otwieralny PDF. Układ stron może się różnić od oryginału. Plik, który nie jest prawdziwym DOCX, jest odrzucany przed uruchomieniem LibreOffice. Istniejący PDF blokuje zapis. |
-| DOCX → ODT | format biurowy | LibreOffice, tryb headless | Treść tekstowa jest przenoszona, złożony układ może się zmienić. Uszkodzony DOCX jest odrzucany przed uruchomieniem programu. Istniejący ODT blokuje zapis. |
-| ODT → DOCX | format biurowy | LibreOffice, tryb headless | Jak wyżej, w drugą stronę. Uszkodzony ODT jest odrzucany. Istniejący DOCX blokuje zapis. |
+| CSV → JSON | dane strukturalne | `csv`, `json` | Pierwszy wiersz jest nagłówkiem. Wynik to lista obiektów. Polskie znaki zostają. Istniejący plik blokuje zapis. |
+| JSON → CSV | dane strukturalne | `csv`, `json` | Nagłówek i kolejność kolumn z pierwszego obiektu. Pusta lista i urwany JSON dają komunikat. Istniejący plik blokuje zapis. |
+| TXT → DOCX | tekst i dokument | python-docx | Linia po linii, razem z pustymi akapitami. Istniejący DOCX blokuje zapis. |
+| DOCX → TXT | tekst i dokument | python-docx | Zwykłe akapity, rozdzielone nową linią. Pola tekstowe, tabele i stopki nie przechodzą. |
+| DOCX → PDF | format biurowy | LibreOffice | Otwieralny PDF. Układ stron może się różnić. Plik, który nie jest prawdziwym DOCX, jest odrzucany. |
+| DOCX → ODT | format biurowy | LibreOffice | Tekst przechodzi, złożony układ może się zmienić. |
+| ODT → DOCX | format biurowy | LibreOffice | Jak wyżej, w drugą stronę. |
 
-Przyjęta struktura JSON to lista obiektów o zwykłych wartościach, zapisana w UTF-8. Klucze odpowiadają nagłówkom CSV. Pojedynczy obiekt JSON, zamiast listy, nie jest obsługiwaną strukturą.
+LibreOffice jest szukany w PATH jako `libreoffice`, potem jako `soffice`, a na Windows jeszcze w `C:\Program Files\LibreOffice\program\soffice.exe`. Na macOS typowa ścieżka to `/Applications/LibreOffice.app/Contents/MacOS/soffice`. Proces dostaje argumenty osobno, bez powłoki, z limitem 60 sekund. Sam kod zakończenia równy zero nie wystarcza: plik wynikowy musi powstać i nie być pusty.
 
-LibreOffice jest wołany listą argumentów, bez powłoki, z limitem 60 sekund. Sprawdzany jest kod zakończenia i to, czy plik wynikowy w ogóle powstał i nie jest pusty. Wynik najpierw powstaje w katalogu tymczasowym, a potem jest kopiowany do katalogu docelowego bez nadpisania istniejącego pliku.
+## Jak korzystać z okna
 
-## Czego jeszcze nie ma
+1. Wybierz rozszerzenie źródła („Z formatu”). Lista „Na format” pokazuje tylko dozwolone cele.
+2. Wskaż plik tego typu i katalog zapisu. Jeśli katalog jest pusty, program proponuje folder wybranego pliku.
+3. Kliknij „Konwertuj”. Na czas pracy przycisk jest wyłączony, a status pokazuje, że konwersja trwa.
+4. Sukces kończy się oknem ze ścieżką zapisu. Błąd, brak pliku, brak katalogu, uszkodzone dane albo istniejący wynik pokazują przyczynę i nie zostawiają cichego nadpisania.
 
-Nie ma interfejsu graficznego, więc nie ma wyboru pliku ani formatu w oknie. Nie zachowujemy identycznego układu stron, makr, przypisów ani osadzonych wykresów.
+Zmiana formatu źródła czyści wcześniej wybrany plik, jeśli ma inne rozszerzenie.
 
-Pary dokumentów nie nadpisują istniejącego wyniku i sygnalizują, że plik już jest. CSV i JSON przy kolejnym uruchomieniu zapisują wynik od nowa. JSON inny niż lista obiektów kończy się komunikatem «0». Przy błędzie konwersji `execute()` wypisuje komunikat i zwraca `None`. Brak katalogu docelowego kończy się wyjątkiem jeszcze przed samą konwersją. Konwersje biurowe uruchamia się po kolei. Gdy LibreOffice sprawia kłopot, warto najpierw zamknąć jego otwarte okno.
+## Instalacja i uruchomienie
 
-## Struktura
-
-* `core.py` trzyma rejestr, sprawdzenie ścieżek i wywołanie konwersji.
-* `converters.py` zawiera same konwertery.
-* `main.py` uruchamia przygotowane kierunki.
-* `pyproject.toml` opisuje wersję Pythona i pakiet `python-docx`.
-* `test/` zawiera dane wejściowe i przykładowe wyniki.
-
-## Jak uruchomić
-
-Potrzebny jest Python 3.14 lub nowszy oraz zainstalowany LibreOffice. Sam menedżer pakietów Pythona LibreOffice nie doinstaluje. Biblioteka dokumentów nazywa się w instalacji `python-docx`, a w kodzie importuje się ją jako `docx`.
-
-Program szuka LibreOffice po kolei: najpierw w PATH jako `libreoffice`, potem jako `soffice`, a na Windows jeszcze pod `C:\Program Files\LibreOffice\program\soffice.exe`. Do pracy w konsoli na Windows pasuje też `soffice.com` z katalogu `program`. Na macOS typowa ścieżka to `/Applications/LibreOffice.app/Contents/MacOS/soffice`. Gdy programu nie ma, pojawia się prośba o instalację albo ustawienie ścieżki. Nieistniejącą ścieżkę można podać w argumencie `executable` funkcji `docx_to_pdf`. Sam `main.py` tego argumentu nie przyjmuje.
+Potrzebny jest Python 3.14+ oraz LibreOffice, jeśli mają działać pary biurowe.
 
 ```bash
 git clone https://github.com/dramonRog/file-converter.git
 cd file-converter
 uv sync
-uv run python main.py
+uv run python gui.py
 ```
 
 Bez uv:
@@ -63,23 +61,28 @@ Po aktywacji środowiska:
 
 ```bash
 python -m pip install "python-docx>=1.2.0"
-python -c "from docx import Document; print('OK')"
-python main.py
+python gui.py
 ```
 
-Katalogu `.venv` nie dołącza się do oddawanego archiwum.
+Katalogu `.venv` nie dodaje się do archiwum projektu.
 
-`python main.py` przechodzi pary po kolei i zapisuje wynik obok danych w `test/`.
+`python main.py` zostawia starszą ścieżkę konsolową: przechodzi przygotowane pliki z katalogu `test/` i wypisuje wynik w terminalu. Do zwykłej pracy służy okno.
 
-| Wejście | Format | Wynik |
-|---|---|---|
-| `test/csv/test_csv.csv` | `.json` | `test/json/test_csv.json` |
-| `test/json/error-json.json` | `.csv` | komunikat o błędnym JSON, bez pliku |
-| `test/json/test_json.json` | `.csv` | `test/csv/test_json.csv` |
-| `test/docx/mini-test-doc.docx` | `.pdf` | `test/pdf/mini-test-doc.pdf` |
-| `test/docx/mini-test-doc.docx` | `.txt` | `test/txt/mini-test-doc.txt` |
-| `test/docx/mini-test-doc.docx` | `.odt` | `test/odt/mini-test-doc.odt` |
-| `test/txt/test_text.txt` | `.docx` | `test/docx/test_text.docx` |
-| `test/odt/test_odt.odt` | `.docx` | `test/docx/test_odt.docx` |
+## Struktura
 
-Dla dokumentów istniejący plik wynikowy blokuje kolejny zapis. Przed ponownym uruchomieniem usuń tylko wyniki, nie pliki wejściowe: `test/pdf/mini-test-doc.pdf`, `test/docx/test_text.docx`, `test/docx/test_text1.docx`, `test/docx/test_odt.docx` i `test/odt/test_text1.odt`. Pary CSV ↔ JSON nadpisują swój wynik same.
+* `gui.py` to okno Tkinter/ttk.
+* `core.py` trzyma rejestr, sprawdzenie ścieżek i wywołanie konwersji.
+* `converters.py` zawiera same konwertery.
+* `main.py` uruchamia zestaw prób bez okna.
+* `pyproject.toml` opisuje wersję Pythona i `python-docx`.
+* `test/` zawiera przykładowe pliki wejściowe i wyniki.
+
+## Ograniczenia
+
+Identyczny układ stron, makra, przypisy i osadzone wykresy nie są celem programu. DOCX → TXT nie widzi tekstu schowanego w polach tekstowych. JSON inny niż lista obiektów, na przykład pojedynczy obiekt, nie jest przyjętą strukturą. Konwersje przez LibreOffice lepiej uruchamiać po kolei. Gdy program biurowy sprawia kłopot, warto najpierw zamknąć jego otwarte okno.
+
+## Dalsze kroki
+
+* Testy automatyczne dla sprawdzenia ścieżek, listy formatów i co najmniej dwóch konwerterów.
+* Czytelniejszy komunikat, gdy JSON jest poprawny składniowo, ale nie jest listą obiektów.
+* Ewentualne pytanie „czy zastąpić istniejący plik?” zamiast samej odmowy zapisu.
